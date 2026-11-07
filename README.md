@@ -79,7 +79,7 @@ To update a dependency, change its version and SHA256 hash in `CMakeLists.txt`.
 
 ## Releases
 
-Publishing a GitHub release triggers the `wheels.yml` workflow, which builds the source distribution and wheels with [cibuildwheel](https://cibuildwheel.pypa.io) and uploads them to PyPI through [trusted publishing](https://docs.pypi.org/trusted-publishers). The version is derived from the Git tag. Before the first release, register a pending trusted publisher for the `pyevtgen` project on PyPI with workflow `wheels.yml` and environment `PyPI`, and create that environment in the GitHub repository settings. The policy-managed `cd.yml` workflow closes milestones and updates version branches.
+Publishing a GitHub release triggers the `wheels.yml` workflow, which builds the source distribution and wheels with [cibuildwheel](https://cibuildwheel.pypa.io) and uploads them to PyPI through [trusted publishing](https://docs.pypi.org/trusted-publishers). The version is derived from the Git tag. Before the first release, register a pending trusted publisher for the `pyevtgen` project on PyPI with workflow `wheels.yml` and environment `PyPI`, and create that environment in the GitHub repository settings.
 
 ## License
 

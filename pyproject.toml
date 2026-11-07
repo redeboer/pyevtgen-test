@@ -73,6 +73,7 @@ repo-title = "pyevtgen"
 
 [tool.compwa.policy.github]
 keep-workflow = ["wheels.yml"]
+no-cd = true
 no-pypi = true
 
 [tool.compwa.policy.python]
