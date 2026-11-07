@@ -1,6 +1,6 @@
 """Python interface to the EvtGen generator and its bundled data files."""
 
-# cspell:ignore Mersenne
+# cspell:ignore allclose Mersenne
 
 from __future__ import annotations
 
@@ -127,6 +127,48 @@ class Generator:
     def particles(self) -> list[ParticleProperties]:
         """Return all entries of the particle table."""
         return self.__core.particles()
+
+
+def phase_space(
+    parent_mass: float,
+    masses: Sequence[float],
+    n: int,
+    seed: int | None = None,
+) -> np.ndarray:
+    r"""Generate unweighted :math:`n`-body phase space decays with EvtGen.
+
+    This calls the :code:`EvtGenKine::PhaseSpace` routine directly with plain masses,
+    so it needs no :class:`Generator`, particle table, or decay table. It can be used
+    next to a :class:`Generator` and with different masses in one process.
+
+    The routine uses accept-reject sampling, whose efficiency drops by about a factor
+    of ten per additional daughter. Beyond about nine daughters it becomes impractically
+    slow, and a running call cannot be interrupted.
+
+    Args:
+        parent_mass: Mass of the decaying state in GeV.
+        masses: Masses of the 2 to 15 daughters in GeV.
+        n: Number of events.
+        seed: Seed for the random engine. A random seed is drawn if not given. Each
+            call starts a new sequence, so use different seeds to extend a sample.
+
+    Returns:
+        Four-momenta :math:`(E, p_x, p_y, p_z)` in GeV in the rest frame of the parent
+        with shape :code:`(n, len(masses), 4)`, with daughters in the order of
+        :code:`masses`.
+
+    >>> momenta = phase_space(3.097, [0.135, 0.14, 0.14], n=5, seed=0)
+    >>> momenta.shape
+    (5, 3, 4)
+    >>> np.allclose(momenta.sum(axis=1), [3.097, 0, 0, 0])
+    True
+    """
+    if n < 0:
+        msg = f"Number of events must be non-negative, got {n}"
+        raise ValueError(msg)
+    if seed is None:
+        seed = secrets.randbits(32)
+    return _core.phase_space(parent_mass, list(masses), n, seed)
 
 
 def final_state_momenta(events: Iterable[Particle]) -> np.ndarray:

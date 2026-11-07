@@ -1,4 +1,4 @@
-// cspell:ignore Daug getctau
+// cspell:ignore Daug getctau ndarray ndim numpy
 // Python bindings for EvtGen.
 //
 // EvtGen keeps its particle table, decay table and random engine in global
@@ -7,12 +7,14 @@
 // pointers into memory that EvtGen owns.
 
 #include <nanobind/nanobind.h>
+#include <nanobind/ndarray.h>
 #include <nanobind/stl/array.h>
 #include <nanobind/stl/optional.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/variant.h>
 #include <nanobind/stl/vector.h>
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <cmath>
@@ -27,6 +29,7 @@
 #include <vector>
 
 #include "EvtGen/EvtGen.hh"
+#include "EvtGenBase/EvtGenKine.hh"
 #include "EvtGenBase/EvtId.hh"
 #include "EvtGenBase/EvtPDL.hh"
 #include "EvtGenBase/EvtParticle.hh"
@@ -244,6 +247,52 @@ class Generator {
     std::mutex m_mutex;
 };
 
+using MomentumArray = nb::ndarray<nb::numpy, double, nb::ndim<3>, nb::c_contig>;
+
+MomentumArray phase_space(double parent_mass, const std::vector<double>& masses, size_t n,
+                          unsigned long seed) {
+    // EvtGenKine::PhaseSpace has no maximum weight for more daughters and takes
+    // one-body decays to be at rest with the mass of the daughter.
+    constexpr size_t max_daughters = 15;
+    if (masses.size() < 2 || masses.size() > max_daughters) {
+        throw nb::value_error("Phase space requires 2 to 15 daughters");
+    }
+    double mass_sum = 0.0;
+    for (const double mass : masses) {
+        if (!(mass >= 0.0)) {
+            throw nb::value_error("Daughter masses must be non-negative");
+        }
+        mass_sum += mass;
+    }
+    if (!(parent_mass > mass_sum)) {
+        throw nb::value_error("Parent mass must exceed the sum of the daughter masses");
+    }
+    const size_t n_daughters = masses.size();
+    auto* data = new double[n * n_daughters * 4];
+    nb::capsule owner(data, [](void* p) noexcept { delete[] static_cast<double*>(p); });
+    {
+        nb::gil_scoped_release release;
+        // EvtRandom stores a thread-local pointer that outlives this function
+        static thread_local MersenneTwisterEngine engine(0);
+        engine.setSeed(seed);
+        EvtRandom::setRandomEngine(&engine);
+        std::array<double, 30> mass{};
+        std::copy(masses.begin(), masses.end(), mass.begin());
+        std::array<EvtVector4R, 30> p4;
+        double* out = data;
+        for (size_t i = 0; i < n; ++i) {
+            EvtGenKine::PhaseSpace(static_cast<int>(n_daughters), mass.data(), p4.data(),
+                                   parent_mass);
+            for (size_t j = 0; j < n_daughters; ++j) {
+                for (int k = 0; k < 4; ++k) {
+                    *out++ = p4[j].get(k);
+                }
+            }
+        }
+    }
+    return MomentumArray(data, {n, n_daughters, 4}, owner);
+}
+
 }  // namespace
 
 NB_MODULE(_core, m) {
@@ -298,6 +347,9 @@ NB_MODULE(_core, m) {
                    "', pdg_id=" + std::to_string(self.pdg_id) +
                    ", mass=" + std::to_string(self.mass) + ")";
         });
+
+    m.def("phase_space", &phase_space, "parent_mass"_a, "masses"_a, "n"_a, "seed"_a,
+          "Generate n unweighted phase space decays in the parent rest frame.");
 
     nb::class_<Generator>(m, "Generator", "Wrapper around the EvtGen decay generator.")
         .def(nb::init<const std::vector<std::string>&, const std::string&,

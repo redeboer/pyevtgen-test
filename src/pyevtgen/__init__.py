@@ -25,6 +25,7 @@ from pyevtgen._generator import (
     PYTHIA8_XML_DIR,
     Generator,
     final_state_momenta,
+    phase_space,
 )
 
 __all__ = [
@@ -38,4 +39,5 @@ __all__ = [
     "Particle",
     "ParticleProperties",
     "final_state_momenta",
+    "phase_space",
 ]

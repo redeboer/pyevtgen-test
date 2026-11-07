@@ -45,6 +45,14 @@ events = generator.generate("D0", n=10_000)
 momenta = final_state_momenta(events)
 ```
 
+To generate unweighted phase space for arbitrary masses, use `phase_space()`. It needs no `Generator` or decay table, and returns an array of shape `(n_events, n_daughters, 4)`:
+
+```python
+from pyevtgen import phase_space
+
+momenta = phase_space(3.097, [0.135, 0.14, 0.14], n=10_000, seed=0)
+```
+
 Particle properties from the particle table are available by name or PDG ID:
 
 ```python

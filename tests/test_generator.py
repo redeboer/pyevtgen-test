@@ -1,4 +1,4 @@
-# cspell:ignore allclose enddecay jpsi libstdc mumu usefixtures
+# cspell:ignore allclose dalitz enddecay jpsi libstdc mumu usefixtures
 from __future__ import annotations
 
 import subprocess
@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 
 import pyevtgen
-from pyevtgen import Generator, final_state_momenta
+from pyevtgen import Generator, final_state_momenta, phase_space
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -173,3 +173,111 @@ def test_fsr(jpsi_to_mumu: Path):
         print(sum(len(e.final_state()) > 2 for e in events))
     """)
     assert int(output) > 100
+
+
+def _invariant_mass_squared(momenta: np.ndarray) -> np.ndarray:
+    return momenta[..., 0] ** 2 - np.sum(momenta[..., 1:] ** 2, axis=-1)
+
+
+@pytest.mark.parametrize(
+    ("parent_mass", "masses"),
+    [
+        (1.8, [0.5, 0.14]),
+        (3.097, [0.0, 0.135, 0.14]),
+        (5.0, [1.0, 0.5, 0.25, 0.1]),
+        (20.0, [0.5 + i / 10 for i in range(8)]),
+    ],
+)
+def test_phase_space_kinematics(parent_mass: float, masses: list[float]):
+    momenta = phase_space(parent_mass, masses, n=200, seed=0)
+    assert momenta.shape == (200, len(masses), 4)
+    expected_total = np.broadcast_to([parent_mass, 0, 0, 0], (200, 4))
+    assert np.allclose(momenta.sum(axis=1), expected_total)
+    expected_masses = np.broadcast_to(np.square(masses), (200, len(masses)))
+    assert np.allclose(_invariant_mass_squared(momenta), expected_masses, atol=1e-8)
+
+
+def test_phase_space_is_reproducible():
+    first = phase_space(3.0, [0.1, 0.2, 0.3], n=10, seed=1)
+    assert np.array_equal(first, phase_space(3.0, [0.1, 0.2, 0.3], n=10, seed=1))
+    assert not np.array_equal(first, phase_space(3.0, [0.1, 0.2, 0.3], n=10, seed=2))
+
+
+def _inside_dalitz_plot(
+    s12: np.ndarray, s23: np.ndarray, parent_mass: float, masses: list[float]
+) -> np.ndarray:
+    m1, m2, m3 = masses
+    e2 = (s12 - m1**2 + m2**2) / (2 * np.sqrt(s12))
+    e3 = (parent_mass**2 - s12 - m3**2) / (2 * np.sqrt(s12))
+    p2 = np.sqrt(np.maximum(e2**2 - m2**2, 0))
+    p3 = np.sqrt(np.maximum(e3**2 - m3**2, 0))
+    lower = (e2 + e3) ** 2 - (p2 + p3) ** 2
+    upper = (e2 + e3) ** 2 - (p2 - p3) ** 2
+    return (lower <= s23) & (s23 <= upper)
+
+
+def _flat_dalitz_histogram(
+    parent_mass: float, masses: list[float], bin_ranges: list[tuple[float, float]]
+) -> np.ndarray:
+    rng = np.random.default_rng(seed=0)
+    s12 = rng.uniform(*bin_ranges[0], size=4_000_000)
+    s23 = rng.uniform(*bin_ranges[1], size=4_000_000)
+    inside = _inside_dalitz_plot(s12, s23, parent_mass, masses)
+    histogram, _, _ = np.histogram2d(
+        s12[inside], s23[inside], bins=10, range=bin_ranges
+    )
+    return histogram
+
+
+@pytest.mark.parametrize(
+    ("parent_mass", "masses"),
+    [
+        (3.0, [0.1, 0.2, 0.3]),
+        (5.28, [1.87, 0.49, 0.14]),
+    ],
+)
+def test_phase_space_is_uniform_in_dalitz_plot(parent_mass: float, masses: list[float]):
+    n_events = 500_000
+    momenta = phase_space(parent_mass, masses, n=n_events, seed=0)
+    s12 = _invariant_mass_squared(momenta[:, 0] + momenta[:, 1])
+    s23 = _invariant_mass_squared(momenta[:, 1] + momenta[:, 2])
+    s12_range = (masses[0] + masses[1]) ** 2, (parent_mass - masses[2]) ** 2
+    s23_range = (masses[1] + masses[2]) ** 2, (parent_mass - masses[0]) ** 2
+    bin_ranges = [s12_range, s23_range]
+    observed, _, _ = np.histogram2d(s12, s23, bins=10, range=bin_ranges)
+
+    reference = _flat_dalitz_histogram(parent_mass, masses, bin_ranges)
+    scale = n_events / reference.sum()
+    expected = scale * reference
+    mask = expected > 50
+    variance = expected + scale**2 * reference
+    chi2 = np.sum((observed - expected)[mask] ** 2 / variance[mask])
+    assert chi2 / (np.count_nonzero(mask) - 1) < 1.5
+
+
+def test_phase_space_next_to_generator(generator: Generator):
+    phase_space(3.0, [0.1, 0.2, 0.3], n=1, seed=0)
+    assert generator.decay("D0").name == "D0"
+
+
+@pytest.mark.parametrize(
+    ("parent_mass", "masses", "n", "match"),
+    [
+        (1.0, [0.6, 0.6], 1, "must exceed"),
+        (1.0, [0.5, 0.5], 1, "must exceed"),
+        (1.0, [0.1], 1, "2 to 15"),
+        (9.0, [0.1] * 16, 1, "2 to 15"),
+        (1.0, [-0.1, 0.1], 1, "non-negative"),
+        (1.0, [float("nan"), 0.1], 1, "non-negative"),
+        (1.0, [0.1, 0.1], -1, "non-negative"),
+    ],
+)
+def test_phase_space_invalid_input(
+    parent_mass: float, masses: list[float], n: int, match: str
+):
+    with pytest.raises(ValueError, match=match):
+        phase_space(parent_mass, masses, n=n)
+
+
+def test_phase_space_without_events():
+    assert phase_space(3.0, [0.1, 0.2], n=0).shape == (0, 2, 4)

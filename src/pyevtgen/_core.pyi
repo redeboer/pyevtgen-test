@@ -1,6 +1,10 @@
 """Low-level bindings to the EvtGen C++ library."""
 
 from collections.abc import Sequence
+from typing import Annotated
+
+import numpy
+from numpy.typing import NDArray
 
 
 EVTGEN_VERSION: str = 'R03-01-00'
@@ -93,6 +97,9 @@ class ParticleProperties:
         """Twice the spin."""
 
     def __repr__(self) -> str: ...
+
+def phase_space(parent_mass: float, masses: Sequence[float], n: int, seed: int) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None, None), order='C')]:
+    """Generate n unweighted phase space decays in the parent rest frame."""
 
 class Generator:
     """Wrapper around the EvtGen decay generator."""
