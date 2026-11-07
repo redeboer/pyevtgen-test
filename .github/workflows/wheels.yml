@@ -1,4 +1,4 @@
-# cspell:ignore CIBW CLICOLOR
+# cspell:ignore CIBW CLICOLOR conftest
 name: Wheels
 
 concurrency:
@@ -19,8 +19,10 @@ on:
       - .github/scripts/update_index.py
       - .github/workflows/wheels.yml
       - CMakeLists.txt
+      - conftest.py
       - pyproject.toml
       - src/**
+      - tests/**
   pull_request:
     branches:
       - main
@@ -28,8 +30,10 @@ on:
       - .github/scripts/update_index.py
       - .github/workflows/wheels.yml
       - CMakeLists.txt
+      - conftest.py
       - pyproject.toml
       - src/**
+      - tests/**
   release:
     types:
       - published

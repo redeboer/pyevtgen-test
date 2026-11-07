@@ -74,6 +74,7 @@ repo-title = "pyevtgen"
 dependabot-ecosystems = []
 keep-workflow = ["wheels.yml"]
 no-cd = true
+no-github-actions = true
 no-pypi = true
 
 [tool.compwa.policy.python]
