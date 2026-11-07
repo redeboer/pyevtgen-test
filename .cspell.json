@@ -1,0 +1,60 @@
+{
+  "enableFiletypes": [
+    "git-commit",
+    "github-actions-workflow",
+    "julia",
+    "jupyter"
+  ],
+  "flagWords": [
+    "analyse",
+    "colour",
+    "comparision",
+    "favour",
+    "flavour",
+    "hte",
+    "optimise",
+    "paramater",
+    "parmater",
+    "transision",
+    "transisions"
+  ],
+  "ignorePaths": [
+    "**/.cspell.json",
+    ".editorconfig",
+    ".envrc",
+    ".gitattributes",
+    ".github/dependabot.yml",
+    ".gitignore",
+    ".pre-commit-config.yaml",
+    ".prettierignore",
+    ".vscode/*",
+    "pixi.toml",
+    "pyproject.toml"
+  ],
+  "language": "en-US",
+  "useGitignore": true,
+  "version": "0.2",
+  "words": [
+    "cibuildwheel",
+    "compwa",
+    "ctau",
+    "doctests",
+    "envrc",
+    "evtgen",
+    "hepmc",
+    "nanobind",
+    "prek",
+    "prereleased",
+    "pyevtgen",
+    "pypa",
+    "pypi",
+    "pyproject",
+    "pytest",
+    "repr",
+    "sdist",
+    "tauola",
+    "venv",
+    "vincia",
+    "xmldoc"
+  ]
+}

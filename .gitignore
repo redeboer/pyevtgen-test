@@ -1,0 +1,9 @@
+*.egg-info/
+*.so
+.pixi/
+.venv/
+__pycache__/
+build/
+dist/
+src/pyevtgen/_version.py
+wheelhouse/

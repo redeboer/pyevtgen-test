@@ -1,0 +1,45 @@
+[dependencies]
+cmake = ">=3.24"
+cxx-compiler = "*"
+ninja = "*"
+prek = "*"
+uv = "*"
+
+[tasks.build]
+cmd = "uv build"
+description = "Build the source distribution and a wheel into dist/"
+
+[tasks.style]
+cmd = "uv run --group style --no-dev prek run --all-files"
+description = "Perform all linting, formatting, and spelling checks"
+
+[tasks.test]
+cmd = "uv run --group test --no-dev pytest"
+description = "Run all unit tests and doctests"
+
+[tasks.upgrade]
+depends-on = [
+    "_upgrade-pixi",
+    "_upgrade-precommit",
+    "_upgrade-uv",
+]
+description = "Upgrade all lock files"
+
+[tasks._upgrade-pixi]
+cmd = "pixi update"
+
+[tasks._upgrade-precommit]
+cmd = "prek autoupdate"
+
+[tasks._upgrade-uv]
+cmd = "uv lock --upgrade"
+
+[workspace]
+channels = ["conda-forge"]
+name = "pyevtgen"
+platforms = [
+    "linux-64",
+    "linux-aarch64",
+    "osx-64",
+    "osx-arm64",
+]

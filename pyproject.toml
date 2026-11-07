@@ -1,0 +1,201 @@
+[project]
+name = "pyevtgen"
+description = "Python bindings for the EvtGen particle decay generator"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [{ name = "Common Partial Wave Analysis", email = "compwa-admin@ep1.rub.de" }]
+maintainers = [{ email = "compwa-admin@ep1.rub.de" }]
+keywords = ["EvtGen", "HEP", "Monte Carlo", "event generator", "particle physics"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: C++",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Typing :: Typed",
+]
+dependencies = ["numpy"]
+dynamic = ["version"]
+
+[project.urls]
+Changelog = "https://github.com/ComPWA/pyevtgen/releases"
+EvtGen = "https://gitlab.cern.ch/evtgen/evtgen"
+Issues = "https://github.com/ComPWA/pyevtgen/issues"
+Source = "https://github.com/ComPWA/pyevtgen"
+
+[dependency-groups]
+dev = [
+    "ruff",
+    { include-group = "style" },
+    { include-group = "test" },
+]
+style = [
+    "pytest",
+    "ty",
+]
+test = [
+    "pytest>=9",
+    "pytest-xdist",
+]
+
+[build-system]
+requires = [
+    "nanobind>=2.9",
+    "scikit-build-core>=0.11",
+    "setuptools-scm>=8",
+]
+build-backend = "scikit_build_core.build"
+
+[tool.cibuildwheel]
+build = ["cp310-*", "cp311-*", "cp312-*"]
+build-frontend = "build[uv]"
+skip = ["*-musllinux_*"]
+test-command = "pytest {project}/tests"
+test-groups = ["test"]
+
+[tool.cibuildwheel.macos.environment]
+MACOSX_DEPLOYMENT_TARGET = "11.0"
+
+[tool.compwa.policy]
+package-manager = "pixi+uv"
+repo-name = "pyevtgen"
+repo-title = "pyevtgen"
+
+[tool.compwa.policy.github]
+keep-workflow = ["wheels.yml"]
+no-pypi = true
+
+[tool.compwa.policy.python]
+type-checker = ["ty"]
+
+[tool.pytest]
+addopts = [
+    "--color=yes",
+    "--doctest-continue-on-failure",
+    "--doctest-modules",
+    "--import-mode=importlib",
+]
+minversion = "9.0"
+testpaths = ["src", "tests"]
+
+[tool.ruff]
+extend-exclude = ["src/pyevtgen/_core.pyi"]
+force-exclude = true
+preview = true
+show-fixes = true
+src = [
+    "src",
+    "tests",
+]
+
+[tool.ruff.lint]
+ignore = [
+    "DOC",
+    "PTH",
+    "any-type",
+    "docstring-missing-exception",
+    "docstring-missing-returns",
+    "if-else-block-instead-of-if-exp",
+    "incorrect-blank-line-before-class",
+    "line-too-long",
+    "logging-f-string",
+    "missing-copyright-notice",
+    "missing-dashed-underline-after-section",
+    "missing-section-name-colon",
+    "missing-trailing-comma",
+    "multi-line-summary-second-line",
+    "non-empty-init-module",
+    "pytest-fixture-incorrect-parentheses-style",
+    "read-whole-file",
+    "reimplemented-starmap",
+    "single-line-implicit-string-concatenation",
+    "too-many-arguments",
+    "undocumented-magic-method",
+    "undocumented-public-class",
+    "undocumented-public-function",
+    "undocumented-public-init",
+    "undocumented-public-method",
+    "unspecified-encoding",
+    "write-whole-file",
+]
+select = ["ALL"]
+task-tags = ["cspell"]
+
+[tool.ruff.lint.per-file-ignores]
+"conftest.py" = ["D", "implicit-namespace-package", "pytest-fixture-autouse"]
+"tests/*" = [
+    "ANN",
+    "D",
+    "T20",
+    "assert",
+    "boolean-type-hint-positional-argument",
+    "float-equality-comparison",
+    "implicit-namespace-package",
+    "import-private-name",
+    "magic-value-comparison",
+    "no-self-use",
+    "private-member-access",
+    "suspicious-subprocess-import",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+split-on-trailing-comma = false
+
+[tool.ruff.format]
+docstring-code-format = true
+line-ending = "lf"
+
+[tool.scikit-build]
+build-dir = "build/{wheel_tag}"
+metadata.version.provider = "scikit_build_core.metadata.setuptools_scm"
+minimum-version = "build-system.requires"
+sdist.include = ["src/pyevtgen/_version.py"]
+wheel.py-api = "cp312"
+
+[tool.setuptools_scm]
+fallback_version = "0.0.0"
+version_file = "src/pyevtgen/_version.py"
+
+[tool.tombi.files]
+exclude = ["**/uv.lock"]
+
+[tool.tombi.format.rules]
+indent-width = 4
+line-width = 88
+
+[tool.tombi.lint.rules]
+key-empty = "off"
+
+[[tool.tombi.schemas]]
+root = "tool.compwa.policy"
+path = "https://raw.githubusercontent.com/ComPWA/policy/0.10.1/compwa-policy.schema.json"
+include = ["pyproject.toml"]
+
+[tool.ty.rules]
+division-by-zero = "warn"
+possibly-missing-import = "warn"
+possibly-unresolved-reference = "warn"
+
+[tool.ty.terminal]
+error-on-warning = true
+
+[tool.uv]
+cache-keys = [
+    { file = "CMakeLists.txt" },
+    { file = "pyproject.toml" },
+    { file = "src/**/*.cpp" },
+    { git = { commit = true, tags = true } },
+]
