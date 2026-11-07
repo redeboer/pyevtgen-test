@@ -131,7 +131,7 @@ jobs:
           name: all-distributions
           path: dist
       - run: uv venv
-      - run: uv pip install --find-links dist --no-build-package pyevtgen pyevtgen "pytest>=9"
+      - run: uv pip install --find-links dist --only-binary pyevtgen pyevtgen "pytest>=9"
       - run: .venv/bin/pytest tests
 
   pages:
