@@ -161,6 +161,7 @@ jobs:
       - run: >-
           uv run --no-project .github/scripts/update_index.py dist site
           https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+          ${{ github.server_url }}/${{ github.repository }}
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: site

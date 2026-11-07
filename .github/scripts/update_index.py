@@ -38,6 +38,7 @@ def main() -> None:
     parser.add_argument("dist", type=Path, help="Directory with new distributions")
     parser.add_argument("site", type=Path, help="Output directory of the site")
     parser.add_argument("url", help="Base URL of the published site")
+    parser.add_argument("repository", help="URL of the source repository")
     parser.add_argument("--keep", default=5, type=int, help="Versions to keep")
     args = parser.parse_args()
 
@@ -58,6 +59,8 @@ def main() -> None:
                 url + urllib.parse.quote(name), output_dir / name
             )
     write_index(output_dir)
+    versions = new_versions | kept_versions
+    write_landing_page(args.site, args.url.rstrip("/"), args.repository, versions)
     (args.site / "simple" / "index.html").write_text(
         f'<!DOCTYPE html><a href="{PACKAGE}/">{PACKAGE}</a>\n'
     )
@@ -100,6 +103,56 @@ def write_index(directory: Path) -> None:
             f"{html.escape(path.name)}</a><br>"
         )
     (directory / "index.html").write_text("\n".join(lines) + "\n")
+
+
+def write_landing_page(
+    site: Path, url: str, repository: str, versions: set[Version]
+) -> None:
+    items = "\n".join(
+        f"<li><code>{html.escape(str(version))}</code></li>"
+        for version in sorted(versions, reverse=True)
+    )
+    (site / "index.html").write_text(f"""\
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{PACKAGE} package index</title>
+<style>
+:root {{ color-scheme: light dark; }}
+body {{ font-family: system-ui, sans-serif; line-height: 1.5; margin: 2rem auto; max-width: 42rem; padding-inline: 1rem; }}
+pre {{ background: #8882; border-radius: 0.25rem; overflow-x: auto; padding: 0.75rem; }}
+</style>
+</head>
+<body>
+<h1>{PACKAGE} package index</h1>
+<p>This site hosts development wheels of <a href="{repository}">{PACKAGE}</a>, Python bindings for the EvtGen particle decay generator. They are built from the default branch for testing purposes and are not official releases. Only the latest versions are kept.</p>
+<h2>Install</h2>
+<pre><code>uv pip install {PACKAGE} --index {url}/simple</code></pre>
+<p>To use it in a project, add this to <code>pyproject.toml</code> and run <code>uv lock --upgrade-package {PACKAGE}</code> to pick up new builds:</p>
+<pre><code>[[tool.uv.index]]
+explicit = true
+name = "{PACKAGE}"
+url = "{url}/simple"
+
+[tool.uv.sources]
+{PACKAGE} = {{ index = "{PACKAGE}" }}</code></pre>
+<h2>Available versions</h2>
+<ul>
+{items}
+</ul>
+<h2>Links</h2>
+<ul>
+<li><a href="simple/{PACKAGE}/">All files of {PACKAGE}</a></li>
+<li><a href="simple/">Simple package index</a></li>
+<li><a href="{repository}">Source code</a></li>
+<li><a href="{repository}/actions/workflows/wheels.yml">Build workflow</a></li>
+<li><a href="{repository}/issues">Issues</a></li>
+</ul>
+</body>
+</html>
+""")
 
 
 if __name__ == "__main__":
