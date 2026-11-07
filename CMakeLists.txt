@@ -1,4 +1,4 @@
-# cspell:ignore fjcore fsigned inlines licence sabi skbuild xmldir
+# cspell:ignore fjcore fsigned inlines libgcc libstdc licence sabi skbuild strequal xmldir
 cmake_minimum_required(VERSION 3.24...4.0)
 project(${SKBUILD_PROJECT_NAME} VERSION ${SKBUILD_PROJECT_VERSION} LANGUAGES CXX)
 
@@ -91,6 +91,13 @@ find_package(
 find_package(nanobind CONFIG REQUIRED)
 nanobind_add_module(_core STABLE_ABI NB_STATIC src/bindings.cpp)
 target_link_libraries(_core PRIVATE evtgen_static)
+# Wheels must not depend on the libstdc++ of the build toolchain. A compiler newer
+# than the system one, like Pixi's, otherwise yields an extension that fails to
+# import once another module, like NumPy, has loaded the older system library.
+# --exclude-libs keeps the static runtime from clashing with that loaded library.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  target_link_options(_core PRIVATE -static-libstdc++ -static-libgcc -Wl,--exclude-libs,ALL)
+endif()
 target_compile_definitions(
   _core PRIVATE
   PYEVTGEN_EVTGEN_VERSION="${PYEVTGEN_EVTGEN_TAG}"
@@ -122,6 +129,10 @@ nanobind_add_stub(
 )
 
 install(TARGETS _core LIBRARY DESTINATION pyevtgen)
+# Conda's compiler driver adds an RPATH to the local environment on every link
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  install(CODE "file(RPATH_REMOVE FILE \"\${CMAKE_INSTALL_PREFIX}/pyevtgen/$<TARGET_FILE_NAME:_core>\")")
+endif()
 install(
   FILES ${evtgen_SOURCE_DIR}/DECAY.DEC ${evtgen_SOURCE_DIR}/evt.pdl
   DESTINATION pyevtgen/data

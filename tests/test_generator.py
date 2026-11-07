@@ -1,4 +1,4 @@
-# cspell:ignore allclose enddecay jpsi mumu usefixtures
+# cspell:ignore allclose enddecay jpsi libstdc mumu usefixtures
 from __future__ import annotations
 
 import subprocess
@@ -21,6 +21,16 @@ STABLE_PARTICLES = {
     "anti-p-", "e+", "e-", "gamma", "mu+", "mu-", "n0", "nu_e", "nu_mu",
     "nu_tau", "p+", "pi+", "pi-",
 }  # fmt: skip
+
+
+def test_import_after_numpy():
+    # NumPy loads the system libstdc++, which may be older than the build compiler's
+    output = run_in_subprocess("""
+        import numpy
+        import pyevtgen
+        print(pyevtgen.EVTGEN_VERSION)
+    """)
+    assert pyevtgen.EVTGEN_VERSION in output
 
 
 def test_bundled_data_files():
