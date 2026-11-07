@@ -8,6 +8,14 @@ env:
   FORCE_COLOR: "1"
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/wheels.yml
+      - CMakeLists.txt
+      - pyproject.toml
+      - src/**
   pull_request:
     branches:
       - main
@@ -62,6 +70,24 @@ jobs:
         with:
           name: dist-wheels-${{ matrix.runs-on }}
           path: wheelhouse/*.whl
+
+  dist:
+    name: Combine distributions
+    needs:
+      - sdist
+      - wheels
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          merge-multiple: true
+          path: dist
+          pattern: dist-*
+      - run: ls -l dist
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: all-distributions
+          path: dist/*
 
   pypi:
     name: Publish to PyPI
