@@ -1,3 +1,4 @@
+# cspell:ignore CIBW CLICOLOR
 name: Wheels
 
 concurrency:
@@ -5,6 +6,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  CIBW_ENVIRONMENT_PASS_LINUX: CLICOLOR_FORCE CMAKE_COLOR_DIAGNOSTICS FORCE_COLOR
+  CLICOLOR_FORCE: "1"
+  CMAKE_COLOR_DIAGNOSTICS: "ON"
   FORCE_COLOR: "1"
 
 on:
