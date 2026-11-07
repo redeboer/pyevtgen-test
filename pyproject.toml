@@ -80,6 +80,9 @@ no-pypi = true
 [tool.compwa.policy.python]
 type-checker = ["ty"]
 
+[tool.compwa.policy.setup.env]
+UV_NO_SYNC = "true"
+
 [tool.pytest]
 addopts = [
     "--color=yes",
