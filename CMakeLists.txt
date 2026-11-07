@@ -1,4 +1,4 @@
-# cspell:ignore fjcore fsigned inlines libgcc libstdc licence sabi skbuild strequal xmldir
+# cspell:ignore fjcore fsigned inlines kagan libgcc libstdc licence sabi skbuild strequal xmldir xsgamma
 cmake_minimum_required(VERSION 3.24...4.0)
 project(${SKBUILD_PROJECT_NAME} VERSION ${SKBUILD_PROJECT_VERSION} LANGUAGES CXX)
 
@@ -79,6 +79,9 @@ target_link_libraries(evtgen_static PUBLIC hepmc3_static pythia8_static)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   # EvtGen assumes a signed char (see EvtGenCompilerFlags.cmake upstream)
   target_compile_options(evtgen_static PUBLIC -fsigned-char)
+  # On Apple Silicon, fused multiply-add otherwise yields a NaN integration bound in
+  # EvtBtoXsgammaKagan, which makes initialization take hours
+  target_compile_options(evtgen_static PRIVATE -ffp-contract=off)
   target_compile_options(evtgen_static PRIVATE -w)
   target_compile_options(hepmc3_static PRIVATE -w)
   target_compile_options(pythia8_static PRIVATE -w)
