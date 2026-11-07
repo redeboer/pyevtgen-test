@@ -85,7 +85,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 
 find_package(
-  Python 3.10 REQUIRED
+  Python 3.11 REQUIRED
   COMPONENTS Interpreter Development.Module ${SKBUILD_SABI_COMPONENT}
 )
 find_package(nanobind CONFIG REQUIRED)

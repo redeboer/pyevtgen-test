@@ -22,7 +22,7 @@ The wheels are self-contained: EvtGen 3.1.0, HepMC 3.3.1 and Pythia 8.318 are co
 pip install pyevtgen
 ```
 
-Wheels are built for Linux (x86_64, aarch64) and macOS (arm64, x86_64) for Python 3.10 and newer.
+Wheels are built for Linux (x86_64, aarch64) and macOS (arm64, x86_64) for Python 3.11 and newer: one wheel for Python 3.11 and one stable ABI (`abi3`) wheel for Python 3.12 and newer.
 
 ## Usage
 
