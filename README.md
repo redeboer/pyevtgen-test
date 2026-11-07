@@ -81,6 +81,20 @@ To update a dependency, change its version and SHA256 hash in `CMakeLists.txt`.
 
 Publishing a GitHub release triggers the `wheels.yml` workflow, which builds the source distribution and wheels with [cibuildwheel](https://cibuildwheel.pypa.io) and uploads them to PyPI through [trusted publishing](https://docs.pypi.org/trusted-publishers). The version is derived from the Git tag. Before the first release, register a pending trusted publisher for the `pyevtgen` project on PyPI with workflow `wheels.yml` and environment `PyPI`, and create that environment in the GitHub repository settings.
 
+## Development builds
+
+Each push to `main` that passes the `wheels.yml` tests publishes wheels to a package index on GitHub Pages, which keeps the five latest versions. To use it downstream, add the index to `pyproject.toml` and run `uv lock --upgrade-package pyevtgen` to pick up a new build:
+
+```toml
+[[tool.uv.index]]
+explicit = true
+name = "pyevtgen"
+url = "https://redeboer.github.io/pyevtgen-test/simple"
+
+[tool.uv.sources]
+pyevtgen = { index = "pyevtgen" }
+```
+
 ## License
 
 This package is distributed under the GNU General Public License v3.0 or later, because it links EvtGen (GPL-3.0-or-later), Pythia8 (GPL-2.0-or-later) and HepMC3 (LGPL-3.0-or-later). Their license texts are included in the wheels.
