@@ -2496,7 +2496,17 @@ jupyter = [
     { name = "python-lsp-server" },
 ]
 style = [
+    { name = "ipykernel" },
+    { name = "matplotlib" },
+    { name = "myst-nb" },
+    { name = "pandas" },
     { name = "pytest" },
+    { name = "sphinx", version = "9.0.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "sphinx", version = "9.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.12.*'" },
+    { name = "sphinx", version = "9.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.13'" },
+    { name = "sphinx-autobuild" },
+    { name = "sphinx-book-theme" },
+    { name = "sphinx-copybutton" },
     { name = "ty" },
 ]
 test = [
@@ -2550,7 +2560,15 @@ jupyter = [
     { name = "python-lsp-server" },
 ]
 style = [
+    { name = "ipykernel" },
+    { name = "matplotlib" },
+    { name = "myst-nb" },
+    { name = "pandas" },
     { name = "pytest" },
+    { name = "sphinx" },
+    { name = "sphinx-autobuild" },
+    { name = "sphinx-book-theme" },
+    { name = "sphinx-copybutton" },
     { name = "ty" },
 ]
 test = [

@@ -62,6 +62,7 @@ jupyter = [
 style = [
     "pytest",
     "ty",
+    { include-group = "doc" },
 ]
 test = [
     "pytest>=9",
