@@ -15,8 +15,9 @@ autodoc_default_options = {
 autodoc_member_order = "bysource"
 copybutton_prompt_is_regexp = True
 copybutton_prompt_text = r">>> |\.\.\. "
-exclude_patterns = ["**.ipynb_checkpoints", "*build"]
+exclude_patterns = ["**.ipynb_checkpoints", "*build", "examples"]
 extensions = [
+    "jupyterlite_sphinx",
     "myst_nb",
     "sphinx.ext.autodoc",
     "sphinx.ext.intersphinx",
@@ -43,6 +44,8 @@ intersphinx_mapping = {
     "numpy": ("https://numpy.org/doc/stable", None),
     "python": ("https://docs.python.org/3", None),
 }
+jupyterlite_contents = ["examples"]
+jupyterlite_silence = True
 myst_enable_extensions = ["colon_fence", "dollarmath", "smartquotes"]
 myst_heading_anchors = 3
 nb_execution_mode = "cache"

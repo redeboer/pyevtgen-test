@@ -5,6 +5,9 @@
 __pycache__/
 build/
 dist/
+node_modules/
+docs/.jupyterlite.doit.db
 docs/_build/
+docs/_contents/
 src/pyevtgen/_version.py
 wheelhouse/

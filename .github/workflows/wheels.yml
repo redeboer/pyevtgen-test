@@ -163,6 +163,14 @@ jobs:
       - run: uv venv
       - run: uv pip install --find-links dist --only-binary pyevtgen pyevtgen --group doc
       - run: .venv/bin/sphinx-build --fail-on-warning --keep-going docs docs/_build/html
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      # Pyodide version of jupyterlite-pyodide-kernel, see docs/browser.md
+      - run: npm install --no-save pyodide@314.0.6
+      - run: >-
+          node .github/scripts/test_lite_notebooks.mjs
+          dist/*-cp314-cp314-pyemscripten_*.whl docs/examples/*.ipynb
       - run: >-
           uv run --no-project .github/scripts/update_index.py dist docs/_build/html
           https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
