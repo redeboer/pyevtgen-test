@@ -21,6 +21,7 @@ usage/decay-files
 usage/particle-properties
 usage/fsr
 usage/phase-space
+usage/evtgen-api
 usage/four-body
 browser
 explorer
