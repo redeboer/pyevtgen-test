@@ -43,7 +43,7 @@ class Particle:
     @property
     def decay_mode(self) -> int:
         """
-        Index of the decay channel in the decay table, or -1 if the particle did not decay.
+        Index of the decay channel in the decay table, or -1 if the particle did not decay. Decays through the PYTHIA model report 0, because Pythia8 resets the selected channel.
         """
 
     @property

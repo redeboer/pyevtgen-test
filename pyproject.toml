@@ -35,8 +35,29 @@ Source = "https://github.com/ComPWA/pyevtgen"
 [dependency-groups]
 dev = [
     "ruff",
+    { include-group = "doc" },
+    { include-group = "jupyter" },
     { include-group = "style" },
     { include-group = "test" },
+]
+doc = [
+    "ipykernel",
+    "matplotlib",
+    "myst-nb",
+    "pandas",
+    "sphinx",
+    "sphinx-autobuild",
+    "sphinx-book-theme",
+    "sphinx-copybutton",
+]
+jupyter = [
+    "jupyter-ruff",
+    "jupyterlab",
+    "jupyterlab-git",
+    "jupyterlab-lsp",
+    "jupyterlab-myst",
+    "jupyterlab-quickopen",
+    "python-lsp-server",
 ]
 style = [
     "pytest",
@@ -102,6 +123,7 @@ src = [
     "src",
     "tests",
 ]
+extend-include = ["*.ipynb"]
 
 [tool.ruff.lint]
 ignore = [
@@ -152,12 +174,45 @@ task-tags = ["cspell"]
     "private-member-access",
     "suspicious-subprocess-import",
 ]
+"*.ipynb" = [
+    "ANN",
+    "C90",
+    "D",
+    "PLR09",
+    "T20",
+    "TC00",
+    "assert",
+    "global-statement",
+    "global-variable-not-assigned",
+    "magic-value-comparison",
+    "mixed-case-variable-in-global-scope",
+    "non-lowercase-variable-in-function",
+    "too-many-blank-lines",
+    "useless-expression",
+    "useless-semicolon",
+]
+"docs/*" = [
+    "assert",
+    "implicit-namespace-package",
+    "request-without-timeout",
+]
+"docs/conf.py" = [
+    "builtin-variable-shadowing",
+    "undocumented-public-module",
+]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
 [tool.ruff.lint.isort]
 split-on-trailing-comma = false
+known-first-party = ["pyevtgen"]
+
+[tool.ruff.lint.flake8-builtins]
+ignorelist = ["display"]
+
+[tool.ruff.lint.flake8-comprehensions]
+allow-dict-calls-with-keyword-arguments = true
 
 [tool.ruff.format]
 docstring-code-format = true

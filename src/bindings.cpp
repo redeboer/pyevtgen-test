@@ -314,7 +314,8 @@ NB_MODULE(_core, m) {
                 "Sampled proper decay time as c*t in mm.")
         .def_ro("decay_mode", &Particle::decay_mode,
                 "Index of the decay channel in the decay table, or -1 if the particle "
-                "did not decay.")
+                "did not decay. Decays through the PYTHIA model report 0, because "
+                "Pythia8 resets the selected channel.")
         .def_ro("daughters", &Particle::daughters, "Direct decay products.")
         .def_prop_ro("mass", &Particle::mass, "Invariant mass of p4 in GeV.")
         .def(

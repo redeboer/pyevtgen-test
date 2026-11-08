@@ -76,6 +76,7 @@ The project builds with [scikit-build-core](https://scikit-build-core.readthedoc
 pixi run test     # build the package and run the tests
 pixi run style    # formatters and linters
 pixi run build    # source distribution and wheel in dist/
+pixi run doc      # documentation with executed notebooks in docs/_build/html
 pixi run upgrade  # upgrade lock files and pre-commit hooks
 ```
 
@@ -89,19 +90,9 @@ To update a dependency, change its version and SHA256 hash in `CMakeLists.txt`.
 
 Publishing a GitHub release triggers the `wheels.yml` workflow, which builds the source distribution and wheels with [cibuildwheel](https://cibuildwheel.pypa.io) and uploads them to PyPI through [trusted publishing](https://docs.pypi.org/trusted-publishers). The version is derived from the Git tag. Before the first release, register a pending trusted publisher for the `pyevtgen` project on PyPI with workflow `wheels.yml` and environment `PyPI`, and create that environment in the GitHub repository settings.
 
-## Development builds
+## Documentation and development builds
 
-Each push to `main` that passes the `wheels.yml` tests publishes wheels to a package index on GitHub Pages, which keeps the five latest versions. To use it downstream, add the index to `pyproject.toml` and run `uv lock --upgrade-package pyevtgen` to pick up a new build:
-
-```toml
-[[tool.uv.index]]
-explicit = true
-name = "pyevtgen"
-url = "https://redeboer.github.io/pyevtgen-test/simple"
-
-[tool.uv.sources]
-pyevtgen = { index = "pyevtgen" }
-```
+The [documentation](https://redeboer.github.io/pyevtgen-test) shows how to use all features through executed notebooks. It is hosted on GitHub Pages together with a package index of development wheels, which are built from `main` once the wheels pass their tests. The [installation page](https://redeboer.github.io/pyevtgen-test/install.html) explains how to install from that index.
 
 ## License
 

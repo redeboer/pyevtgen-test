@@ -27,10 +27,12 @@
   },
   "github-actions.workflows.pinned.workflows": [".github/workflows/ci.yml"],
   "gitlens.telemetry.enabled": false,
+  "livePreview.defaultPreviewPath": "docs/_build/html",
   "notebook.codeActionsOnSave": {
     "notebook.source.organizeImports": "explicit"
   },
   "notebook.formatOnSave.enabled": true,
+  "notebook.gotoSymbols.showAllSymbols": true,
   "python.defaultInterpreterPath": ".venv/bin/python",
   "python.terminal.activateEnvironment": false,
   "python.testing.pytestArgs": ["--numprocesses=auto"],

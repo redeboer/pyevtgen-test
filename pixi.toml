@@ -9,6 +9,14 @@ uv = "*"
 cmd = "uv build"
 description = "Build the source distribution and a wheel into dist/"
 
+[tasks.doc]
+cmd = "uv run --group doc --no-dev sphinx-build --fail-on-warning --keep-going docs docs/_build/html"
+description = "Build the documentation and execute its notebooks"
+
+[tasks.doclive]
+cmd = "uv run --group doc --no-dev sphinx-autobuild --watch src docs docs/_build/html --re-ignore '/_build/|\\.ipynb_checkpoints/'"
+description = "Build the documentation and update it on changes"
+
 [tasks.style]
 cmd = "uv run --group style --no-dev prek run --all-files"
 description = "Perform all linting, formatting, and spelling checks"
