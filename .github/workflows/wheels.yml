@@ -16,7 +16,7 @@ on:
     branches:
       - main
     paths:
-      - .github/scripts/update_index.py
+      - .github/scripts/**
       - .github/workflows/wheels.yml
       - CMakeLists.txt
       - conftest.py
@@ -29,7 +29,7 @@ on:
     branches:
       - main
     paths:
-      - .github/scripts/update_index.py
+      - .github/scripts/**
       - .github/workflows/wheels.yml
       - CMakeLists.txt
       - conftest.py

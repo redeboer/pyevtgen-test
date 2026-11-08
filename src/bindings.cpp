@@ -1,41 +1,48 @@
-// cspell:ignore Daug getctau ndarray ndim numpy
+// cspell:ignore Daug ctau dotr getctau magr ndarray ndim numpy pdt scalartripler
 // Python bindings for EvtGen.
 //
-// EvtGen keeps its particle table, decay table and random engine in global
-// state, so a process can hold only one Generator. Decay trees are copied into
-// plain Particle values right after generation, so that Python never holds
-// pointers into memory that EvtGen owns.
+// The classes and methods mirror the EvtGen C++ API one to one, with the same
+// names, so that EvtGen's documentation and C++ examples carry over to Python.
+// Python owns no EvtGen memory: as in C++, a particle tree that was created
+// with EvtParticleFactory has to be released with EvtParticle.deleteTree().
+//
+// Only phase_space() goes beyond the C++ API, because looping over events in
+// Python would be too slow for large samples.
 
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
-#include <nanobind/stl/array.h>
-#include <nanobind/stl/optional.h>
+#include <nanobind/operators.h>
+#include <nanobind/stl/complex.h>
+#include <nanobind/stl/list.h>
 #include <nanobind/stl/string.h>
-#include <nanobind/stl/variant.h>
+#include <nanobind/stl/tuple.h>
 #include <nanobind/stl/vector.h>
 
 #include <algorithm>
 #include <array>
 #include <atomic>
-#include <cmath>
+#include <complex>
 #include <list>
-#include <memory>
-#include <mutex>
-#include <optional>
-#include <random>
+#include <sstream>
 #include <stdexcept>
 #include <string>
-#include <variant>
+#include <tuple>
 #include <vector>
 
 #include "EvtGen/EvtGen.hh"
+#include "EvtGenBase/EvtAbsRadCorr.hh"
+#include "EvtGenBase/EvtComplex.hh"
+#include "EvtGenBase/EvtDecayBase.hh"
+#include "EvtGenBase/EvtDecayTable.hh"
 #include "EvtGenBase/EvtGenKine.hh"
 #include "EvtGenBase/EvtId.hh"
+#include "EvtGenBase/EvtMTRandomEngine.hh"
 #include "EvtGenBase/EvtPDL.hh"
 #include "EvtGenBase/EvtParticle.hh"
 #include "EvtGenBase/EvtParticleFactory.hh"
 #include "EvtGenBase/EvtRandom.hh"
 #include "EvtGenBase/EvtRandomEngine.hh"
+#include "EvtGenBase/EvtSpinDensity.hh"
 #include "EvtGenBase/EvtSpinType.hh"
 #include "EvtGenBase/EvtVector4R.hh"
 #include "EvtGenExternal/EvtExternalGenList.hh"
@@ -43,209 +50,42 @@
 namespace nb = nanobind;
 using namespace nb::literals;
 
-using FourVector = std::array<double, 4>;
-using ParticleKey = std::variant<int, std::string>;
-
 namespace {
 
-FourVector to_array(const EvtVector4R& v) {
-    return {v.get(0), v.get(1), v.get(2), v.get(3)};
+// EvtGen keeps its tables in global state and cannot be constructed twice
+std::atomic<bool> g_evtgen_constructed{false};
+
+void claim_evtgen() {
+    if (g_evtgen_constructed.exchange(true)) {
+        throw std::runtime_error(
+            "EvtGen has global state and can only be initialized once per "
+            "process. Reuse the existing EvtGen instance.");
+    }
 }
 
-// Mersenne Twister engine; EvtGen's default engine is a 15-bit LCG.
-class MersenneTwisterEngine : public EvtRandomEngine {
-  public:
-    explicit MersenneTwisterEngine(unsigned long seed) { setSeed(seed); }
-
-    // EvtGen expects numbers in the open interval (0, 1)
-    double random() override {
-        double x;
-        do {
-            x = m_uniform(m_engine);
-        } while (x == 0.0);
-        return x;
-    }
-
-    void setSeed(unsigned long seed) override {
-        m_seed = seed;
-        m_engine.seed(seed);
-        m_uniform.reset();
-    }
-
-    unsigned long lastSeed() const override { return m_seed; }
-
-  private:
-    std::mt19937_64 m_engine;
-    std::uniform_real_distribution<double> m_uniform{0.0, 1.0};
-    unsigned long m_seed = 0;
-};
-
-struct Particle {
-    std::string name;
-    int pdg_id;
-    FourVector p4;
-    FourVector position;
-    double lifetime;
-    int decay_mode;
-    std::vector<Particle> daughters;
-
-    double mass() const {
-        const double m2 = p4[0] * p4[0] - p4[1] * p4[1] - p4[2] * p4[2] - p4[3] * p4[3];
-        return m2 > 0.0 ? std::sqrt(m2) : 0.0;
-    }
-
-    void collect_final_state(std::vector<Particle>& out) const {
-        if (daughters.empty()) {
-            out.push_back(*this);
-            return;
-        }
-        for (const auto& daughter : daughters) {
-            daughter.collect_final_state(out);
-        }
-    }
-};
-
-Particle convert(EvtParticle* p) {
-    const EvtId id = p->getId();
-    Particle out{
-        EvtPDL::name(id),
-        EvtPDL::getStdHep(id),
-        to_array(p->getP4Lab()),
-        to_array(p->get4Pos()),
-        p->getLifetime(),
-        p->getNDaug() > 0 ? p->getChannel() : -1,
-        {},
-    };
-    out.daughters.reserve(p->getNDaug());
-    for (size_t i = 0; i < p->getNDaug(); ++i) {
-        out.daughters.push_back(convert(p->getDaug(i)));
-    }
-    return out;
+std::list<EvtDecayBase*> to_list(const std::vector<EvtDecayBase*>& models) {
+    return {models.begin(), models.end()};
 }
 
-struct ParticleProperties {
-    std::string name;
-    int pdg_id;
-    double mass;
-    double width;
-    double min_mass;
-    double max_mass;
-    double ctau;
-    double charge;
-    int spin2;
-};
+std::string to_string(const EvtVector4R& v) {
+    std::ostringstream out;
+    out << "EvtVector4R(" << v.get(0) << ", " << v.get(1) << ", " << v.get(2) << ", "
+        << v.get(3) << ")";
+    return out.str();
+}
 
-std::atomic<bool> g_initialized{false};
-
-class Generator {
-  public:
-    Generator(const std::vector<std::string>& decay_files,
-              const std::string& particle_table, const std::string& pythia_xml_dir,
-              bool fsr, unsigned long seed, int mixing_type) {
-        if (decay_files.empty()) {
-            throw nb::value_error("At least one decay file is required");
-        }
-        if (g_initialized.exchange(true)) {
-            throw std::runtime_error(
-                "EvtGen has global state and can only be initialized once per "
-                "process. Reuse the existing Generator instance.");
-        }
-        m_engine = std::make_unique<MersenneTwisterEngine>(seed);
-        m_external = std::make_unique<EvtExternalGenList>(
-            /*convertPythiaCodes=*/false, pythia_xml_dir, /*photonType=*/"gamma",
-            /*useEvtGenRandom=*/true);
-        if (fsr) {
-            m_fsr.reset(m_external->getVinciaQEDModel());
-        }
-        const std::list<EvtDecayBase*> models = m_external->getListOfModels();
-        m_evtgen = std::make_unique<EvtGen>(decay_files, particle_table, m_engine.get(),
-                                            m_fsr.get(), &models, mixing_type);
+std::tuple<double, std::vector<EvtVector4R>> phase_space_kine(
+    const std::vector<double>& masses, double parent_mass) {
+    std::array<double, 30> mass{};
+    std::array<EvtVector4R, 30> p4;
+    if (masses.size() > mass.size()) {
+        throw nb::value_error("EvtGenKine::PhaseSpace supports at most 30 daughters");
     }
-
-    void read_user_decay_file(const std::string& path) {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        m_evtgen->readUDecay(path);
-    }
-
-    void set_seed(unsigned long seed) {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        m_engine->setSeed(seed);
-    }
-
-    unsigned long seed() const { return m_engine->lastSeed(); }
-
-    std::vector<Particle> generate(const ParticleKey& parent, size_t n,
-                                   const std::optional<FourVector>& p4) {
-        const EvtId id = lookup(parent);
-        const EvtVector4R momentum =
-            p4 ? EvtVector4R((*p4)[0], (*p4)[1], (*p4)[2], (*p4)[3])
-               : EvtVector4R(EvtPDL::getMeanMass(id), 0.0, 0.0, 0.0);
-        std::vector<Particle> events;
-        events.reserve(n);
-        nb::gil_scoped_release release;
-        std::lock_guard<std::mutex> lock(m_mutex);
-        // EvtRandom stores its engine in a thread-local pointer
-        EvtRandom::setRandomEngine(m_engine.get());
-        for (size_t i = 0; i < n; ++i) {
-            EvtParticle* root = EvtParticleFactory::particleFactory(id, momentum);
-            root->setDiagonalSpinDensity();
-            m_evtgen->generateDecay(root);
-            events.push_back(convert(root));
-            root->deleteTree();
-        }
-        return events;
-    }
-
-    ParticleProperties properties(const ParticleKey& key) const {
-        return properties_of(lookup(key));
-    }
-
-    std::vector<ParticleProperties> particles() const {
-        std::vector<ParticleProperties> out;
-        out.reserve(EvtPDL::entries());
-        for (size_t i = 0; i < EvtPDL::entries(); ++i) {
-            out.push_back(properties_of(EvtPDL::getEntry(static_cast<int>(i))));
-        }
-        return out;
-    }
-
-  private:
-    static EvtId lookup(const ParticleKey& key) {
-        if (const auto* name = std::get_if<std::string>(&key)) {
-            const EvtId id = EvtPDL::getId(*name);
-            if (id.getId() < 0) {
-                throw nb::key_error(("Unknown particle name '" + *name + "'").c_str());
-            }
-            return id;
-        }
-        const int pdg_id = std::get<int>(key);
-        const EvtId id = EvtPDL::evtIdFromStdHep(pdg_id);
-        if (id.getId() < 0) {
-            throw nb::key_error(("Unknown PDG ID " + std::to_string(pdg_id)).c_str());
-        }
-        return id;
-    }
-
-    static ParticleProperties properties_of(const EvtId& id) {
-        return {
-            EvtPDL::name(id),
-            EvtPDL::getStdHep(id),
-            EvtPDL::getMeanMass(id),
-            EvtPDL::getWidth(id),
-            EvtPDL::getMinMass(id),
-            EvtPDL::getMaxMass(id),
-            EvtPDL::getctau(id),
-            EvtPDL::chg3(id) / 3.0,
-            EvtSpinType::getSpin2(EvtPDL::getSpinType(id)),
-        };
-    }
-
-    std::unique_ptr<MersenneTwisterEngine> m_engine;
-    std::unique_ptr<EvtExternalGenList> m_external;
-    std::unique_ptr<EvtAbsRadCorr> m_fsr;
-    std::unique_ptr<EvtGen> m_evtgen;
-    std::mutex m_mutex;
-};
+    std::copy(masses.begin(), masses.end(), mass.begin());
+    const double weight = EvtGenKine::PhaseSpace(static_cast<int>(masses.size()),
+                                                 mass.data(), p4.data(), parent_mass);
+    return {weight, {p4.begin(), p4.begin() + masses.size()}};
+}
 
 using MomentumArray = nb::ndarray<nb::numpy, double, nb::ndim<3>, nb::c_contig>;
 
@@ -273,7 +113,7 @@ MomentumArray phase_space(double parent_mass, const std::vector<double>& masses,
     {
         nb::gil_scoped_release release;
         // EvtRandom stores a thread-local pointer that outlives this function
-        static thread_local MersenneTwisterEngine engine(0);
+        static thread_local EvtMTRandomEngine engine;
         engine.setSeed(seed);
         EvtRandom::setRandomEngine(&engine);
         std::array<double, 30> mass{};
@@ -296,75 +136,275 @@ MomentumArray phase_space(double parent_mass, const std::vector<double>& masses,
 }  // namespace
 
 NB_MODULE(_core, m) {
-    m.doc() = "Low-level bindings to the EvtGen C++ library.";
+    m.doc() = "Bindings to the EvtGen C++ library, with the names of its C++ API.";
     m.attr("EVTGEN_VERSION") = PYEVTGEN_EVTGEN_VERSION;
     m.attr("HEPMC3_VERSION") = PYEVTGEN_HEPMC3_VERSION;
     m.attr("PYTHIA8_VERSION") = PYEVTGEN_PYTHIA8_VERSION;
 
-    nb::class_<Particle>(m, "Particle",
-                         "A particle in a generated decay tree.\n\n"
-                         "Momenta are in GeV in the lab frame. Positions are in mm, "
-                         "with the time component as c*t.")
-        .def_ro("name", &Particle::name, "EvtGen particle name.")
-        .def_ro("pdg_id", &Particle::pdg_id, "PDG Monte Carlo particle ID.")
-        .def_ro("p4", &Particle::p4, "Four-momentum (E, px, py, pz) in GeV.")
-        .def_ro("position", &Particle::position,
-                "Production four-position (ct, x, y, z) in mm.")
-        .def_ro("lifetime", &Particle::lifetime,
-                "Sampled proper decay time as c*t in mm.")
-        .def_ro("decay_mode", &Particle::decay_mode,
-                "Index of the decay channel in the decay table, or -1 if the particle "
-                "did not decay. Decays through the PYTHIA model report 0, because "
-                "Pythia8 resets the selected channel.")
-        .def_ro("daughters", &Particle::daughters, "Direct decay products.")
-        .def_prop_ro("mass", &Particle::mass, "Invariant mass of p4 in GeV.")
-        .def(
-            "final_state",
-            [](const Particle& self) {
-                std::vector<Particle> out;
-                self.collect_final_state(out);
-                return out;
-            },
-            "Return the stable particles at the leaves of the decay tree.")
-        .def("__repr__", [](const Particle& self) {
-            return "Particle(name='" + self.name +
-                   "', pdg_id=" + std::to_string(self.pdg_id) +
-                   ", n_daughters=" + std::to_string(self.daughters.size()) + ")";
+    nb::class_<EvtId>(m, "EvtId",
+                      "Identifier of a particle or alias in the EvtGen tables.")
+        .def(nb::init<>())
+        .def(nb::init<int, int>(), "id"_a, "alias"_a)
+        .def("getId", &EvtId::getId)
+        .def("getAlias", &EvtId::getAlias)
+        .def("isAlias", &EvtId::isAlias)
+        .def("isConjugate", &EvtId::isConjugate, "id"_a)
+        .def("getName", &EvtId::getName)
+        .def("__eq__",
+             [](const EvtId& self, nb::handle other) {
+                 return nb::isinstance<EvtId>(other) &&
+                        self == nb::cast<const EvtId&>(other);
+             })
+        .def("__hash__",
+             [](const EvtId& self) { return std::hash<int>()(self.getAlias()); })
+        .def("__repr__", [](const EvtId& self) {
+            return "EvtId(" + std::to_string(self.getId()) + ", " +
+                   std::to_string(self.getAlias()) + ")";
         });
 
-    nb::class_<ParticleProperties>(m, "ParticleProperties",
-                                   "Entry of the EvtGen particle table (evt.pdl).")
-        .def_ro("name", &ParticleProperties::name)
-        .def_ro("pdg_id", &ParticleProperties::pdg_id)
-        .def_ro("mass", &ParticleProperties::mass, "Nominal mass in GeV.")
-        .def_ro("width", &ParticleProperties::width, "Width in GeV.")
-        .def_ro("min_mass", &ParticleProperties::min_mass, "Lower mass cut-off in GeV.")
-        .def_ro("max_mass", &ParticleProperties::max_mass, "Upper mass cut-off in GeV.")
-        .def_ro("ctau", &ParticleProperties::ctau, "Mean proper decay length in mm.")
-        .def_ro("charge", &ParticleProperties::charge, "Electric charge in units of e.")
-        .def_ro("spin2", &ParticleProperties::spin2, "Twice the spin.")
-        .def("__repr__", [](const ParticleProperties& self) {
-            return "ParticleProperties(name='" + self.name +
-                   "', pdg_id=" + std::to_string(self.pdg_id) +
-                   ", mass=" + std::to_string(self.mass) + ")";
-        });
+    nb::class_<EvtVector4R>(m, "EvtVector4R", "Four-vector (E, px, py, pz) in GeV.")
+        .def(nb::init<>())
+        .def(nb::init<double, double, double, double>(), "e"_a, "px"_a, "py"_a, "pz"_a)
+        .def("get", &EvtVector4R::get, "i"_a)
+        .def("set", nb::overload_cast<int, double>(&EvtVector4R::set), "i"_a, "d"_a)
+        .def("set", nb::overload_cast<double, double, double, double>(&EvtVector4R::set),
+             "e"_a, "px"_a, "py"_a, "pz"_a)
+        .def("mass", &EvtVector4R::mass)
+        .def("mass2", &EvtVector4R::mass2)
+        .def("d3mag", &EvtVector4R::d3mag)
+        .def("dot", &EvtVector4R::dot, "v2"_a,
+             "Scalar product of the spatial components.")
+        .def("cont", &EvtVector4R::cont, "v4"_a, "Minkowski scalar product.")
+        .def("applyRotateEuler", &EvtVector4R::applyRotateEuler, "alpha"_a, "beta"_a,
+             "gamma"_a)
+        .def("applyBoostTo",
+             nb::overload_cast<const EvtVector4R&, bool>(&EvtVector4R::applyBoostTo),
+             "p4"_a, "inverse"_a = false)
+        .def(nb::self + nb::self)
+        .def(nb::self - nb::self)
+        .def(nb::self * double())
+        .def(double() * nb::self)
+        .def(nb::self / double())
+        .def(
+            "__mul__", [](const EvtVector4R& a, const EvtVector4R& b) { return a * b; },
+            nb::is_operator(), "Minkowski scalar product, as operator* in C++.")
+        .def("__len__", [](const EvtVector4R&) { return 4; })
+        .def("__iter__",
+             [](const EvtVector4R& self) {
+                 return nb::iter(
+                     nb::make_tuple(self.get(0), self.get(1), self.get(2), self.get(3)));
+             })
+        .def("__getitem__",
+             [](const EvtVector4R& self, int i) {
+                 if (i < 0) {
+                     i += 4;
+                 }
+                 if (i < 0 || i > 3) {
+                     throw nb::index_error();
+                 }
+                 return self.get(i);
+             })
+        .def("__repr__", &to_string);
+    m.def("boostTo",
+          nb::overload_cast<const EvtVector4R&, const EvtVector4R&, bool>(&boostTo),
+          "rs"_a, "p4"_a, "inverse"_a = false);
+    m.def("rotateEuler", &rotateEuler, "rs"_a, "alpha"_a, "beta"_a, "gamma"_a);
+
+    nb::class_<EvtSpinType> spin_type(m, "EvtSpinType");
+    nb::enum_<EvtSpinType::spintype>(spin_type, "spintype")
+        .value("SCALAR", EvtSpinType::SCALAR)
+        .value("VECTOR", EvtSpinType::VECTOR)
+        .value("TENSOR", EvtSpinType::TENSOR)
+        .value("DIRAC", EvtSpinType::DIRAC)
+        .value("PHOTON", EvtSpinType::PHOTON)
+        .value("NEUTRINO", EvtSpinType::NEUTRINO)
+        .value("STRING", EvtSpinType::STRING)
+        .value("RARITASCHWINGER", EvtSpinType::RARITASCHWINGER)
+        .value("SPIN3", EvtSpinType::SPIN3)
+        .value("SPIN4", EvtSpinType::SPIN4)
+        .value("SPIN5HALF", EvtSpinType::SPIN5HALF)
+        .value("SPIN7HALF", EvtSpinType::SPIN7HALF)
+        .export_values();
+    spin_type.def_static("getSpin2", &EvtSpinType::getSpin2, "stype"_a)
+        .def_static("getSpinStates", &EvtSpinType::getSpinStates, "stype"_a);
+
+    nb::class_<EvtPDL>(m, "EvtPDL", "Particle data table, with static methods.")
+        .def_static("getId", &EvtPDL::getId, "name"_a,
+                    "Look up a particle by name. Returns EvtId(-1, -1) if it is unknown.")
+        .def_static("name", &EvtPDL::name, "i"_a)
+        .def_static("evtIdFromStdHep", &EvtPDL::evtIdFromStdHep, "stdhep"_a)
+        .def_static("getStdHep", &EvtPDL::getStdHep, "id"_a)
+        .def_static("chargeConj", &EvtPDL::chargeConj, "id"_a)
+        .def_static("chg3", &EvtPDL::chg3, "i"_a)
+        .def_static("getSpinType", &EvtPDL::getSpinType, "i"_a)
+        .def_static("getMeanMass", &EvtPDL::getMeanMass, "i"_a)
+        .def_static("getMass", &EvtPDL::getMass, "i"_a,
+                    "Sample a mass from the line shape of the particle.")
+        .def_static("getMinMass", &EvtPDL::getMinMass, "i"_a)
+        .def_static("getMaxMass", &EvtPDL::getMaxMass, "i"_a)
+        .def_static("getWidth", &EvtPDL::getWidth, "i"_a)
+        .def_static("getctau", &EvtPDL::getctau, "i"_a)
+        .def_static("entries", &EvtPDL::entries)
+        .def_static("getEntry", &EvtPDL::getEntry, "i"_a)
+        .def_static("reSetMass", &EvtPDL::reSetMass, "i"_a, "mass"_a)
+        .def_static("reSetWidth", &EvtPDL::reSetWidth, "i"_a, "width"_a)
+        .def_static("reSetMassMin", &EvtPDL::reSetMassMin, "i"_a, "mass"_a)
+        .def_static("reSetMassMax", &EvtPDL::reSetMassMax, "i"_a, "mass"_a);
+
+    nb::class_<EvtSpinDensity>(m, "EvtSpinDensity", "Spin density matrix.")
+        .def(nb::init<>())
+        .def("setDim", &EvtSpinDensity::setDim, "n"_a)
+        .def("getDim", &EvtSpinDensity::getDim)
+        .def("setDiag", &EvtSpinDensity::setDiag, "n"_a)
+        .def(
+            "set",
+            [](EvtSpinDensity& self, int i, int j, std::complex<double> rho) {
+                self.set(i, j, EvtComplex(rho.real(), rho.imag()));
+            },
+            "i"_a, "j"_a, "rhoij"_a)
+        .def(
+            "get",
+            [](const EvtSpinDensity& self, int i, int j) {
+                const EvtComplex& rho = self.get(i, j);
+                return std::complex<double>(real(rho), imag(rho));
+            },
+            "i"_a, "j"_a)
+        .def("normalizedProb", &EvtSpinDensity::normalizedProb, "d"_a);
+
+    nb::class_<EvtParticle>(
+        m, "EvtParticle",
+        "Particle in an EvtGen decay tree.\n\n"
+        "Create one with EvtParticleFactory.particleFactory() and release the tree "
+        "with deleteTree() once it is no longer needed. As in C++, using a particle "
+        "of a deleted tree is undefined behavior.")
+        .def("getId", &EvtParticle::getId)
+        .def("getName", &EvtParticle::getName)
+        .def("getPDGId", &EvtParticle::getPDGId)
+        .def("getSpinType", &EvtParticle::getSpinType)
+        .def("getSpinStates", &EvtParticle::getSpinStates)
+        .def("getP4", &EvtParticle::getP4,
+             "Four-momentum in the rest frame of the parent.")
+        .def("getP4Lab", &EvtParticle::getP4Lab)
+        .def("getP4LabBeforeFSR", &EvtParticle::getP4LabBeforeFSR)
+        .def("getP4Restframe", &EvtParticle::getP4Restframe)
+        .def("get4Pos", &EvtParticle::get4Pos,
+             "Production four-position (ct, x, y, z) in mm in the lab frame.")
+        .def("getLifetime", &EvtParticle::getLifetime,
+             "Sampled proper decay time as c*t in mm.")
+        .def("mass", &EvtParticle::mass)
+        .def("getNDaug", &EvtParticle::getNDaug)
+        .def("getDaug", nb::overload_cast<const int>(&EvtParticle::getDaug), "i"_a,
+             nb::rv_policy::reference)
+        .def("getParent", &EvtParticle::getParent, nb::rv_policy::reference)
+        .def("getChannel", &EvtParticle::getChannel)
+        .def("isDecayed", &EvtParticle::isDecayed)
+        .def("setDiagonalSpinDensity", &EvtParticle::setDiagonalSpinDensity)
+        .def("setVectorSpinDensity", &EvtParticle::setVectorSpinDensity)
+        .def("setSpinDensityForward", &EvtParticle::setSpinDensityForward, "rho"_a)
+        .def("setSpinDensityForwardHelicityBasis",
+             nb::overload_cast<const EvtSpinDensity&>(
+                 &EvtParticle::setSpinDensityForwardHelicityBasis),
+             "rho"_a)
+        .def("getSpinDensityForward", &EvtParticle::getSpinDensityForward)
+        .def("treeStr", &EvtParticle::treeStr)
+        .def("printTree", &EvtParticle::printTree)
+        .def("deleteTree", &EvtParticle::deleteTree,
+             "Delete this particle and all its descendants.");
+
+    nb::class_<EvtParticleFactory>(m, "EvtParticleFactory")
+        .def_static(
+            "particleFactory",
+            nb::overload_cast<EvtId, EvtVector4R>(&EvtParticleFactory::particleFactory),
+            "id"_a, "p4"_a, nb::rv_policy::reference,
+            "Create a particle that is owned by the caller: release it with "
+            "deleteTree().");
+
+    nb::class_<EvtDecayBase>(m, "EvtDecayBase", "Decay model of one decay channel.")
+        .def("getModelName", &EvtDecayBase::getModelName)
+        .def("getParentId", &EvtDecayBase::getParentId)
+        .def("getBranchingFraction", &EvtDecayBase::getBranchingFraction)
+        .def("getNDaug", &EvtDecayBase::getNDaug)
+        .def("getDaug", &EvtDecayBase::getDaug, "i"_a)
+        .def("getNArg", &EvtDecayBase::getNArg)
+        .def("getArgStr", &EvtDecayBase::getArgStr, "j"_a);
+
+    nb::class_<EvtDecayTable>(m, "EvtDecayTable", "Decay tables that EvtGen has read.")
+        .def_static("getInstance", &EvtDecayTable::getInstance, nb::rv_policy::reference)
+        .def("getNDecayTables", &EvtDecayTable::getNDecayTables)
+        .def("getNMode", &EvtDecayTable::getNMode, "ipar"_a, "tableIndex"_a = 0,
+             "Number of decay channels of the particle with alias index ipar.")
+        .def("getDecay", &EvtDecayTable::getDecay, "ipar"_a, "imode"_a,
+             "tableIndex"_a = 0, nb::rv_policy::reference);
+
+    nb::class_<EvtRandomEngine>(m, "EvtRandomEngine")
+        .def("random", &EvtRandomEngine::random)
+        .def("setSeed", &EvtRandomEngine::setSeed, "seed"_a)
+        .def("lastSeed", &EvtRandomEngine::lastSeed);
+    nb::class_<EvtMTRandomEngine, EvtRandomEngine>(m, "EvtMTRandomEngine",
+                                                   "Mersenne Twister random engine.")
+        .def(nb::init<unsigned long>(), "seed"_a = 1430957218);
+
+    nb::class_<EvtRandom>(m, "EvtRandom")
+        .def_static(
+            "setRandomEngine",
+            [](nb::object randomEngine) {
+                // EvtRandom keeps a raw pointer, so keep the Python object alive
+                EvtRandom::setRandomEngine(nb::cast<EvtRandomEngine*>(randomEngine));
+                nb::module_::import_("pyevtgen._core").attr("_random_engine") =
+                    randomEngine;
+            },
+            "randomEngine"_a)
+        .def_static("Flat", nb::overload_cast<>(&EvtRandom::Flat))
+        .def_static("Flat", nb::overload_cast<double>(&EvtRandom::Flat), "max"_a)
+        .def_static("Flat", nb::overload_cast<double, double>(&EvtRandom::Flat), "min"_a,
+                    "max"_a)
+        .def_static("Gaussian", &EvtRandom::Gaussian);
+
+    nb::class_<EvtGenKine>(m, "EvtGenKine")
+        .def_static("PhaseSpace", &phase_space_kine, "mass"_a, "mp"_a,
+                    "Generate one unweighted phase space decay. Returns the weight and "
+                    "the daughter four-momenta, which C++ writes into its p4 argument.");
+
+    nb::class_<EvtAbsRadCorr>(m, "EvtAbsRadCorr", "Engine for final-state radiation.");
+
+    nb::class_<EvtExternalGenList>(m, "EvtExternalGenList",
+                                   "Decay models and FSR engines of external generators.")
+        .def(nb::init<bool, std::string, std::string, bool>(),
+             "convertPythiaCodes"_a = false, "pythiaXmlDir"_a = "",
+             "photonType"_a = "gamma", "useEvtGenRandom"_a = true)
+        .def(
+            "getListOfModels",
+            [](EvtExternalGenList& self) {
+                const std::list<EvtDecayBase*> models = self.getListOfModels();
+                return std::vector<EvtDecayBase*>(models.begin(), models.end());
+            },
+            nb::rv_policy::reference)
+        .def("getVinciaQEDModel", &EvtExternalGenList::getVinciaQEDModel,
+             "infraredCutOff"_a = 1.0e-7, nb::rv_policy::reference);
+
+    nb::class_<EvtGen>(m, "EvtGen",
+                       "The EvtGen generator. Only one instance can exist per process.")
+        .def(
+            "__init__",
+            [](EvtGen* self, const std::vector<std::string>& decayNames,
+               const std::string& pdtTableName, EvtRandomEngine* randomEngine,
+               EvtAbsRadCorr* isrEngine, const std::vector<EvtDecayBase*>& extraModels,
+               int mixingType) {
+                if (decayNames.empty()) {
+                    throw nb::value_error("At least one decay file is required");
+                }
+                claim_evtgen();
+                const std::list<EvtDecayBase*> models = to_list(extraModels);
+                new (self) EvtGen(decayNames, pdtTableName, randomEngine, isrEngine,
+                                  &models, mixingType);
+            },
+            "decayNames"_a, "pdtTableName"_a, "randomEngine"_a = nb::none(),
+            "isrEngine"_a = nb::none(), "extraModels"_a = std::vector<EvtDecayBase*>{},
+            "mixingType"_a = 1, nb::keep_alive<1, 4>(), nb::keep_alive<1, 5>())
+        .def("readUDecay", &EvtGen::readUDecay, "udecay_name"_a, "useXml"_a = false)
+        .def("generateDecay", nb::overload_cast<EvtParticle*>(&EvtGen::generateDecay),
+             "p"_a);
 
     m.def("phase_space", &phase_space, "parent_mass"_a, "masses"_a, "n"_a, "seed"_a,
           "Generate n unweighted phase space decays in the parent rest frame.");
-
-    nb::class_<Generator>(m, "Generator", "Wrapper around the EvtGen decay generator.")
-        .def(nb::init<const std::vector<std::string>&, const std::string&,
-                      const std::string&, bool, unsigned long, int>(),
-             "decay_files"_a, "particle_table"_a, "pythia_xml_dir"_a, "fsr"_a, "seed"_a,
-             "mixing_type"_a)
-        .def("read_user_decay_file", &Generator::read_user_decay_file, "path"_a,
-             "Read a user decay file that overrides entries of the main decay table.")
-        .def_prop_ro("seed", &Generator::seed)
-        .def("set_seed", &Generator::set_seed, "seed"_a)
-        .def("generate", &Generator::generate, "parent"_a, "n"_a, "p4"_a = nb::none(),
-             "Generate n decays of the parent particle, by default at rest.")
-        .def("properties", &Generator::properties, "particle"_a,
-             "Look up a particle by EvtGen name or PDG ID.")
-        .def("particles", &Generator::particles,
-             "Return all entries of the particle table.");
 }

@@ -53,6 +53,23 @@ from pyevtgen import phase_space
 momenta = phase_space(3.097, [0.135, 0.14, 0.14], n=10_000, seed=0)
 ```
 
+`Generator` is a convenience layer. The package also exposes the EvtGen C++ classes with the same names and methods, so EvtGen's documentation and C++ examples carry over:
+
+```python
+from pyevtgen import EvtParticleFactory, EvtPDL, EvtVector4R
+
+evt_id = EvtPDL.getId("D*+")
+parent = EvtParticleFactory.particleFactory(
+    evt_id, EvtVector4R(EvtPDL.getMeanMass(evt_id), 0, 0, 0)
+)
+parent.setDiagonalSpinDensity()
+generator.evtgen.generateDecay(parent)
+print(parent.treeStr())
+parent.deleteTree()
+```
+
+This gives access to features like polarized decays through `EvtSpinDensity`, the branching fractions in `EvtDecayTable`, and changing particle properties with `EvtPDL`. As in C++, a particle tree has to be released with `deleteTree()`.
+
 Particle properties from the particle table are available by name or PDG ID:
 
 ```python

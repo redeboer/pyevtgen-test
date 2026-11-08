@@ -265,6 +265,11 @@ path = "https://raw.githubusercontent.com/ComPWA/policy/0.10.3/compwa-policy.sch
 include = ["pyproject.toml"]
 
 [[tool.ty.overrides]]
+include = ["src/pyevtgen/_core.pyi"]
+# The stub refers to the nested EvtSpinType.spintype enum inside EvtSpinType
+rules = { unresolved-reference = "ignore" }
+
+[[tool.ty.overrides]]
 include = [".github/scripts/test_marimo_app.py", "docs/examples/**"]
 # micropip is only available in Pyodide, Playwright only when testing in a browser
 rules = { import-not-found = "ignore" }
