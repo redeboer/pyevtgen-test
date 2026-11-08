@@ -10,8 +10,8 @@ cmd = "uv build"
 description = "Build the source distribution and a wheel into dist/"
 
 [tasks.doc]
-cmd = "uv run --group doc --no-dev sphinx-build --fail-on-warning --keep-going docs docs/_build/html"
-description = "Build the documentation and execute its notebooks"
+cmd = "uv run --group doc --no-dev sphinx-build --fail-on-warning --keep-going docs docs/_build/html && uv run --group doc --no-dev marimo export html-wasm docs/marimo/explorer.py --output docs/_build/html/explorer --mode run --no-show-code && rm docs/_build/html/explorer/CLAUDE.md"
+description = "Build the documentation, execute its notebooks, and export the marimo app"
 
 [tasks.doclive]
 cmd = "uv run --group doc --no-dev sphinx-autobuild --watch src docs docs/_build/html --re-ignore '/_build/|\\.ipynb_checkpoints/'"

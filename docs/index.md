@@ -23,5 +23,6 @@ usage/fsr
 usage/phase-space
 usage/four-body
 browser
+explorer
 api
 ```

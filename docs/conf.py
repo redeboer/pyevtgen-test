@@ -15,7 +15,7 @@ autodoc_default_options = {
 autodoc_member_order = "bysource"
 copybutton_prompt_is_regexp = True
 copybutton_prompt_text = r">>> |\.\.\. "
-exclude_patterns = ["**.ipynb_checkpoints", "*build", "examples"]
+exclude_patterns = ["**.ipynb_checkpoints", "*build", "examples", "marimo"]
 extensions = [
     "jupyterlite_sphinx",
     "myst_nb",

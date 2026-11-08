@@ -21,6 +21,7 @@ on:
       - CMakeLists.txt
       - conftest.py
       - docs/**
+      - pixi.toml
       - pyproject.toml
       - src/**
       - tests/**
@@ -33,6 +34,7 @@ on:
       - CMakeLists.txt
       - conftest.py
       - docs/**
+      - pixi.toml
       - pyproject.toml
       - src/**
       - tests/**
@@ -174,6 +176,17 @@ jobs:
       - run: >-
           uv run --no-project .github/scripts/update_index.py dist docs/_build/html
           https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+      - run: >-
+          .venv/bin/marimo export html-wasm docs/marimo/explorer.py
+          --output docs/_build/html/explorer --mode run --no-show-code
+      # marimo adds instructions for coding agents to the export
+      - run: rm docs/_build/html/explorer/CLAUDE.md
+      - run: uvx --from playwright==1.55.0 playwright install --with-deps chromium
+      - name: Test the marimo app in a browser
+        run: |
+          wheel=$(ls dist/*-cp314-cp314-pyemscripten_*.whl)
+          version=$(basename "$wheel" | cut -d- -f2)
+          uv run --no-project .github/scripts/test_marimo_app.py docs/_build/html "$version"
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: docs/_build/html

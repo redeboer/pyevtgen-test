@@ -45,6 +45,7 @@ doc = [
     "jupyter-server",
     "jupyterlite-pyodide-kernel",
     "jupyterlite-sphinx",
+    "marimo",
     "matplotlib",
     "myst-nb",
     "pandas",
@@ -199,6 +200,17 @@ task-tags = ["cspell"]
     "useless-expression",
     "useless-semicolon",
 ]
+"docs/marimo/*.py" = [
+    "ANN",
+    "D",
+    "PLR09",
+    "import-outside-top-level",
+    "invalid-argument-name",
+    "magic-value-comparison",
+    "non-lowercase-variable-in-function",
+    "used-dummy-variable",
+    "useless-expression",
+]
 "docs/*" = [
     "assert",
     "implicit-namespace-package",
@@ -253,8 +265,8 @@ path = "https://raw.githubusercontent.com/ComPWA/policy/0.10.3/compwa-policy.sch
 include = ["pyproject.toml"]
 
 [[tool.ty.overrides]]
-include = ["docs/examples/**"]
-# micropip is only available in Pyodide
+include = [".github/scripts/test_marimo_app.py", "docs/examples/**"]
+# micropip is only available in Pyodide, Playwright only when testing in a browser
 rules = { import-not-found = "ignore" }
 
 [tool.ty.rules]
