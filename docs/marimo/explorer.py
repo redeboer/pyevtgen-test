@@ -24,26 +24,26 @@ def _(mo):
 async def _():
     import sys
 
+    package_index = None
     if sys.platform == "emscripten":
-        from urllib.parse import urljoin
-
         import js
         import micropip
 
-        # Prefer the index that is hosted next to this app, so that a local build
-        # of the documentation uses its own wheels
-        _indices = [
-            urljoin(str(js.location.href), "../simple"),
+        # Prefer the index that is hosted on the same site as this app, so that a
+        # local build of the documentation uses its own wheels. Python runs in a
+        # web worker, whose location is a script inside the app directory.
+        _site = str(js.location.href).split("/explorer/")[0]
+        for package_index in [
+            f"{_site}/simple",
             "https://redeboer.github.io/pyevtgen-test/simple",
-        ]
-        for _index in _indices:
+        ]:
             try:
-                await micropip.install("pyevtgen", index_urls=_index)
+                await micropip.install("pyevtgen", index_urls=package_index)
                 break
             except ValueError:
                 continue
     pyevtgen_installed = True
-    return (pyevtgen_installed,)
+    return package_index, pyevtgen_installed
 
 
 @app.cell(hide_code=True)
@@ -58,12 +58,13 @@ def _(pyevtgen_installed):
 
 
 @app.cell(hide_code=True)
-def _(mo, pyevtgen):
+def _(mo, package_index, pyevtgen):
     from importlib.metadata import version
 
+    _source = f" from {package_index}" if package_index else ""
     mo.md(
-        f"Running pyevtgen {version('pyevtgen')} with EvtGen {pyevtgen.EVTGEN_VERSION}"
-        f" and Pythia {pyevtgen.PYTHIA8_VERSION}."
+        f"Running pyevtgen {version('pyevtgen')}{_source} with EvtGen"
+        f" {pyevtgen.EVTGEN_VERSION} and Pythia {pyevtgen.PYTHIA8_VERSION}."
     )
 
 
