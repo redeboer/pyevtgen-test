@@ -61,9 +61,10 @@ jobs:
           path: dist/*.tar.gz
 
   wheels:
-    name: Build ${{ matrix.python }} wheel (${{ matrix.runs-on }})
+    name: Build ${{ matrix.python }} ${{ matrix.platform || 'native' }} wheel (${{ matrix.runs-on }})
     env:
       CIBW_BUILD: ${{ matrix.python }}-*
+      CIBW_PLATFORM: ${{ matrix.platform || 'auto' }}
     runs-on: ${{ matrix.runs-on }}
     strategy:
       fail-fast: false
@@ -77,6 +78,10 @@ jobs:
         python:
           - cp311
           - cp312
+        # Pyodide has no stable ABI, so each Pyodide release needs its own wheel
+        include:
+          - { runs-on: ubuntu-24.04, python: cp313, platform: pyodide }
+          - { runs-on: ubuntu-24.04, python: cp314, platform: pyodide }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -86,7 +91,7 @@ jobs:
       - uses: pypa/cibuildwheel@f9b966cfadf4109556cadc5bb39ddb72d0ce664e # v4.3.5
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: dist-wheels-${{ matrix.runs-on }}-${{ matrix.python }}
+          name: dist-wheels-${{ matrix.runs-on }}-${{ matrix.python }}-${{ matrix.platform || 'native' }}
           path: wheelhouse/*.whl
 
   dist:

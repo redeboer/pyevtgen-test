@@ -16,6 +16,10 @@ from pyevtgen import Generator, final_state_momenta, phase_space
 if TYPE_CHECKING:
     from pathlib import Path
 
+requires_processes = pytest.mark.skipif(
+    sys.platform == "emscripten", reason="Pyodide cannot start processes"
+)
+
 STABLE_PARTICLES = {
     "K+", "K-", "K_L0", "anti-n0", "anti-nu_e", "anti-nu_mu", "anti-nu_tau",
     "anti-p-", "e+", "e-", "gamma", "mu+", "mu-", "n0", "nu_e", "nu_mu",
@@ -23,6 +27,7 @@ STABLE_PARTICLES = {
 }  # fmt: skip
 
 
+@requires_processes
 def test_import_after_numpy():
     # NumPy loads the system libstdc++, which may be older than the build compiler's
     output = run_in_subprocess("""
@@ -155,6 +160,7 @@ def jpsi_to_mumu(tmp_path: Path) -> Path:
     return path
 
 
+@requires_processes
 def test_user_decay_file(jpsi_to_mumu: Path):
     output = run_in_subprocess(f"""
         from pyevtgen import Generator, final_state_momenta
@@ -165,6 +171,7 @@ def test_user_decay_file(jpsi_to_mumu: Path):
     assert output == "(100, 2, 4)"
 
 
+@requires_processes
 def test_fsr(jpsi_to_mumu: Path):
     output = run_in_subprocess(f"""
         from pyevtgen import Generator

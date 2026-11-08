@@ -1,4 +1,4 @@
-# cspell:ignore fjcore fsigned inlines kagan libgcc libstdc licence sabi skbuild strequal xmldir xsgamma
+# cspell:ignore crosscompiling fjcore fsigned inlines kagan libgcc libstdc licence sabi skbuild strequal xmldir xsgamma
 cmake_minimum_required(VERSION 3.24...4.0)
 project(${SKBUILD_PROJECT_NAME} VERSION ${SKBUILD_PROJECT_VERSION} LANGUAGES CXX)
 
@@ -122,14 +122,17 @@ if(PYEVTGEN_LOCAL_BUILD)
 endif()
 
 # The stub is written into the source tree and committed, so that type checkers
-# can resolve pyevtgen._core without a build. Every build regenerates it.
-nanobind_add_stub(
-  _core_stub
-  MODULE _core
-  OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/src/pyevtgen/_core.pyi
-  PYTHON_PATH $<TARGET_FILE_DIR:_core>
-  DEPENDS _core
-)
+# can resolve pyevtgen._core without a build. Every native build regenerates it.
+# Cross-compiled builds, like Pyodide, cannot import the module on the build host.
+if(NOT CMAKE_CROSSCOMPILING)
+  nanobind_add_stub(
+    _core_stub
+    MODULE _core
+    OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/src/pyevtgen/_core.pyi
+    PYTHON_PATH $<TARGET_FILE_DIR:_core>
+    DEPENDS _core
+  )
+endif()
 
 install(TARGETS _core LIBRARY DESTINATION pyevtgen)
 # Conda's compiler driver adds an RPATH to the local environment on every link

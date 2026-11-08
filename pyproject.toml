@@ -84,6 +84,10 @@ skip = ["*-musllinux_*"]
 test-command = "pytest {project}/tests"
 test-groups = ["test"]
 
+[tool.cibuildwheel.pyodide]
+# Python's stable ABI is not available in Pyodide
+config-settings = { "wheel.py-api" = "" }
+
 [tool.cibuildwheel.macos.environment]
 MACOSX_DEPLOYMENT_TARGET = "11.0"
 
