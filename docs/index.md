@@ -21,5 +21,6 @@ usage/decay-files
 usage/particle-properties
 usage/fsr
 usage/phase-space
+usage/four-body
 api
 ```
