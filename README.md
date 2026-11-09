@@ -90,6 +90,7 @@ The project builds with [scikit-build-core](https://scikit-build-core.readthedoc
 [Pixi](https://pixi.sh) provides the compilers, CMake, Ninja and uv, while [uv](https://docs.astral.sh/uv) manages the Python environment in `.venv`. With [direnv](https://direnv.net), the `.envrc` file activates both when you enter the repository.
 
 ```shell
+pixi run all      # style, tests, package build, and documentation
 pixi run test     # build the package and run the tests
 pixi run style    # formatters and linters
 pixi run build    # source distribution and wheel in dist/

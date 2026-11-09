@@ -12,6 +12,15 @@ clang-tools = "*"
 default = []
 dev = ["dev"]
 
+[tasks.all]
+depends-on = [
+    "style",
+    "test",
+    "build",
+    "doc",
+]
+description = "Run all checks and build the package and documentation"
+
 [tasks.build]
 cmd = "uv build"
 description = "Build the source distribution and a wheel into dist/"
