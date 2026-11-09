@@ -304,6 +304,7 @@ def phase_space(
         with shape :code:`(n, len(masses), 4)`, with daughters in the order of
         :code:`masses`.
 
+    >>> import numpy as np
     >>> momenta = phase_space(3.097, [0.135, 0.14, 0.14], n=5, seed=0)
     >>> momenta.shape
     (5, 3, 4)

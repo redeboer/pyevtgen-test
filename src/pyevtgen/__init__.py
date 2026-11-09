@@ -4,7 +4,9 @@ The package ships a statically linked build of `EvtGen
 <https://gitlab.cern.ch/evtgen/evtgen>`_ together with its default decay table
 (:data:`DECAY_FILE`) and particle table (:data:`PARTICLE_TABLE`).
 
->>> generator = Generator(seed=42)  # doctest: +SKIP
+A :class:`Generator`, created once with :code:`generator = Generator(seed=42)`,
+generates decay trees:
+
 >>> event = generator.decay("D*+")
 >>> event.name, event.pdg_id
 ('D*+', 413)
@@ -77,3 +79,15 @@ __all__ = [
     "phase_space",
     "rotateEuler",
 ]
+
+
+def _set_public_module() -> None:
+    """Make objects report this module, under which they are documented."""
+    for name in __all__:
+        try:
+            globals()[name].__module__ = __name__
+        except (AttributeError, TypeError):
+            continue  # constants and nanobind functions
+
+
+_set_public_module()

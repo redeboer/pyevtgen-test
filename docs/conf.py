@@ -13,6 +13,7 @@ autodoc_default_options = {
     "undoc-members": True,
 }
 autodoc_member_order = "bysource"
+codeautolink_concat_default = True
 copybutton_prompt_is_regexp = True
 copybutton_prompt_text = r">>> |\.\.\. "
 exclude_patterns = ["**.ipynb_checkpoints", "*build", "examples", "marimo"]
@@ -23,6 +24,7 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.mathjax",
     "sphinx.ext.napoleon",
+    "sphinx_codeautolink",
     "sphinx_copybutton",
 ]
 html_show_sourcelink = False
@@ -41,7 +43,9 @@ html_theme_options = {
 }
 html_title = PACKAGE
 intersphinx_mapping = {
+    "matplotlib": ("https://matplotlib.org/stable", None),
     "numpy": ("https://numpy.org/doc/stable", None),
+    "pandas": ("https://pandas.pydata.org/docs", None),
     "python": ("https://docs.python.org/3", None),
 }
 jupyterlite_contents = ["examples"]

@@ -35,6 +35,7 @@
     "allclose",
     "arange",
     "arctan",
+    "autofunction",
     "automodule",
     "axvline",
     "barh",

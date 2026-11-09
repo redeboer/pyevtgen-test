@@ -52,6 +52,7 @@ doc = [
     "sphinx",
     "sphinx-autobuild",
     "sphinx-book-theme",
+    "sphinx-codeautolink",
     "sphinx-copybutton",
 ]
 jupyter = [
