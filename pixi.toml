@@ -5,6 +5,13 @@ ninja = "*"
 prek = "*"
 uv = "*"
 
+[feature.dev.dependencies]
+clang-tools = "*"
+
+[environments]
+default = []
+dev = ["dev"]
+
 [tasks.build]
 cmd = "uv build"
 description = "Build the source distribution and a wheel into dist/"

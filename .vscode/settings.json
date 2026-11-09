@@ -18,6 +18,7 @@
   "[toml]": {
     "editor.defaultFormatter": "tombi-toml.tombi"
   },
+  "clangd.path": "${workspaceFolder}/.pixi/envs/dev/bin/clangd",
   "cmake.configureOnEdit": false,
   "cmake.configureOnOpen": false,
   "diffEditor.experimental.showMoves": true,
